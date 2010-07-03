@@ -152,7 +152,14 @@
       tos)))
 
 (defn moves-for-red-elephant [board from]
-  (let [tos [(- from 8) (- from 10) (+ from 8) (+ from 10)]]
+  (let [tos (case from
+                  87  [71 67]
+                  83  [67 63]
+                  71  [87 51]
+                  67  [83 87 51 47]
+                  63  [83 47]
+                  51  [67 71]
+                  47  [63 67])]
     (filter
       #(and (different-side? board from %) (in-red-side? %) (elephant-move-not-blocked? board from %))
       tos)))
@@ -249,13 +256,12 @@
         builder (StringBuilder. board)]
     (doto builder
       (.setCharAt (:from move) \u3000)
-      (.setCharAt (:to   move) piece)
-      (.toString))))
+      (.setCharAt (:to   move) piece))
+    (.toString builder)))
 
-(defn generals-faced? [board move]
-  (let [board2      (move board move)
-        black-index (.indexOf board2 (int \將))
-        red-index   (.indexOf board2 (int \帥))
+(defn generals-faced? [board]
+  (let [black-index (.indexOf board (int \將))
+        red-index   (.indexOf board (int \帥))
         black-col   (rem black-index 9)
         red-col     (rem red-index   9)]
     (if-not (= black-col red-col)
@@ -263,7 +269,7 @@
             (let [black-row (quot black-index 9)
                   red-row   (quot red-index   9)
                   rows      (range (+ black-row 1) red-row)
-                  blocked   (some #(let [index (+ (* black-row 9) black-col)
+                  blocked   (some #(let [index (+ (* % 9) black-col)
                                          piece (nth board index)]
                                      (not (= piece \u3000)))
                                   rows)]
@@ -288,21 +294,23 @@
                     \傌 moves-for-horse
                     \兵 moves-for-soldier
                     \卒 moves-for-soldier
-                    \u3000 nil)
+                        nil)
         tos   (if (nil? fun) nil (fun board from))]
     (filter
-      #(let [move (Move. from %)] (not (generals-faced? board move)))
+      #(let [m (Move. from %)
+             b (move board m)]
+         (not (generals-faced? b)))
       tos)))
 
 (defn moves
   "Returns all possible moves from board"
   [board]
-  (flatten
-    (map
-      (fn [from]
-        (let [tos (moves-for-piece board from)]
-          (map (fn [to] (Move. from to)) tos)))
-      (range 90))))
+  (let [froms             (range 90)
+        from-to-moves-fun (fn [from]
+                            (let [tos (moves-for-piece board from)]
+                              (map (fn [to] (Move. from to)) tos)))
+        moves-coll        (map from-to-moves-fun froms)]
+    (flatten moves-coll)))
 
 ;-------------------------------------------------------------------------------
 
