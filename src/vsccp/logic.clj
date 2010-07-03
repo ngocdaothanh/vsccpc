@@ -25,6 +25,31 @@
 (defn red? [piece]
   (>= (.indexOf "帥仕相俥炮傌卒" (int piece)) 0))
 
+(defn score
+  "Returns the score for the board for the RED player, based on a very simple evaluation."
+  [board]
+  (let [scores (map
+                 (fn [piece]
+                   (case piece
+                         \將  9999
+                         \帥 -9999
+                         \士  20
+                         \仕 -20
+                         \象  40
+                         \相 -40
+                         \車  90
+                         \俥 -90
+                         \砲  50
+                         \炮 -50
+                         \馬  45
+                         \傌 -45
+                         \兵  10
+                         \卒 -10
+                         \u3000 0))
+                 (vec board))
+        sum    (reduce + scores)]
+    sum))
+
 ;-------------------------------------------------------------------------------
 
 (defn print-piece [piece]
@@ -36,48 +61,50 @@
   (print " 0 1 2 3 4 5 6 7 8")
   (dotimes [index 90]
     (let [piece (nth board index)]
-      (if (zero? (rem index 9)) (do (println) (print (/ index 9))))
+      (if (zero? (rem index 9)) (do (println) (print (quot index 9))))
       (print-piece piece))))
 
 ;-------------------------------------------------------------------------------
 
-(defn different-side? [board index1 index2]
+(defn different-side?
   "Piece at index1 or 2 may be blank."
+  [board index1 index2]
   (let [piece1 (nth board index1)
         piece2 (nth board index2)]
     (or (and (black? piece1) (not (black? piece2)))
         (and (red?   piece1) (not (red?   piece2))))))
 
-(defn enemy? [board index1 index2]
+(defn enemy?
   "Returns true if piece at index1 and 2 are not blank and of different side."
+  [board index1 index2]
   (let [piece1 (nth board index1)
         piece2 (nth board index2)]
     (or (and (black? piece1) (red?   piece2))
         (and (red?   piece1) (black? piece2)))))
 
 (defn in-black-palace? [index]
-  (let [row (/   index 9)
-        col (rem index 9)]
+  (let [row (quot index 9)
+        col (rem  index 9)]
     (and (>= row 0) (<= row 2) (>= col 3) (<= col 5))))
 
 (defn in-red-palace? [index]
-  (let [row (/   index 9)
-        col (rem index 9)]
+  (let [row (quot index 9)
+        col (rem  index 9)]
     (and (>= row 7) (<= row 9) (>= col 3) (<= col 5))))
 
 (defn elephant-move-not-blocked? [board from to]
-  (let [index (/ (+ from to) 2)
+  (let [index (quot (+ from to) 2)
         piece (nth board index)]
     (= piece \u3000)))
 
 (defn in-black-side? [index]
-  (let [row (/   index 9)
-        col (rem index 9)]
+  (let [row (quot index 9)
+        col (rem  index 9)]
     (and (>= row 0) (<= row 4) (>= col 0) (<= col 8))))
 
 (defn in-red-side? [index]
-  (let [row (/   index 9)
-        col (rem index 9)]
+  (let [row (quot index 9)
+        col (rem  index 9)]
     (and (>= row 5) (<= row 9) (>= col 0) (<= col 8))))
 
 ;-------------------------------------------------------------------------------
@@ -88,13 +115,13 @@
 ;; * Moves are generated and checked from 3 o'clock anticlockwise
 
 (defn moves-for-black-general [board from]
-  (let [tos [(+ from 1) (- from 9) (- from 1) (+ from 9)]]
+  (let [tos [(inc from) (- from 9) (dec from) (+ from 9)]]
     (filter
       #(and (in-black-palace? %) (different-side? board from %))
       tos)))
 
 (defn moves-for-red-general [board from]
-  (let [tos [(+ from 1) (- from 9) (- from 1) (+ from 9)]]
+  (let [tos [(inc from) (- from 9) (dec from) (+ from 9)]]
     (filter
       #(and (in-red-palace? %) (different-side? board from %))
       tos)))
@@ -131,48 +158,62 @@
       tos)))
 
 (defn moves-for-chariot [board from]
-  (let [rights  (if (= (rem from 9) 8) nil (map #(+ from 1) (range 1 9)))
-        ups     (                           map #(- from 9) (range 1 10))
-        lefts   (if (= (rem from 9) 0) nil (map #(- from 1) (range 1 9)))
-        downs   (                           map #(+ from 9) (range 1 10))
+  (let [row     (quot from 9)
+        col     (rem  from 9)
+        rights  (if (=     col 8) nil (range (inc from) (* (inc row) 9)))
+        ups     (if (zero? row)   nil (range (- from 9) (- col 9) -9))
+        lefts   (if (zero? col)   nil (range (dec from) (dec (* row 9)) -1))
+        downs   (if (=     row 9) nil (range (+ from 9) (+ 90 col) 9))
 
-        rights2 (take-while #(and (<= (rem % 9) 8) (different-side? board from %)) rights)
-        ups2    (take-while #(and (>= % 0)         (different-side? board from %)) ups)
-        lefts2  (take-while #(and (>= (rem % 9) 0) (different-side? board from %)) lefts)
-        downs2  (take-while #(and (< % 90)         (different-side? board from %)) downs)]
-    (flatten rights2 ups2 lefts2 downs2)))
+        rights2 (take-while #(different-side? board from %) rights)
+        ups2    (take-while #(different-side? board from %) ups)
+        lefts2  (take-while #(different-side? board from %) lefts)
+        downs2  (take-while #(different-side? board from %) downs)]
+    (concat rights2 ups2 lefts2 downs2)))
 
 (defn moves-for-cannon [board from]
-   (let [rights  (if (= (rem from 9) 8) nil (map #(+ from 1) (range 1 9)))
-         ups     (                           map #(- from 9) (range 1 10))
-         lefts   (if (= (rem from 9) 0) nil (map #(- from 1) (range 1 9)))
-         downs   (                           map #(+ from 9) (range 1 10))
+   (let [row     (quot from 9)
+         col     (rem  from 9)
+         rights  (if (=     col 8) nil (range (inc from) (* (inc row) 9)))
+         ups     (if (zero? row)   nil (range (- from 9) (- col 9) -9))
+         lefts   (if (zero? col)   nil (range (dec from) (dec (* row 9)) -1))
+         downs   (if (=     row 9) nil (range (+ from 9) (+ 90 col) 9))
 
-         rights2 (take-while #(and (<= (rem % 9) 8) (= (nth board %) \u3000)) rights)
-         ups2    (take-while #(and (>= % 0)         (= (nth board %) \u3000)) ups)
-         lefts2  (take-while #(and (>= (rem % 9) 0) (= (nth board %) \u3000)) lefts)
-         downs2  (take-while #(and (< % 90)         (= (nth board %) \u3000)) downs)
+         rights2 (take-while #(= (nth board %) \u3000) rights)
+         ups2    (take-while #(= (nth board %) \u3000) ups)
+         lefts2  (take-while #(= (nth board %) \u3000) lefts)
+         downs2  (take-while #(= (nth board %) \u3000) downs)
 
-         right-most (last rights2)
-         up-most    (last ups2)
-         left-most  (last lefts2)
-         down-most  (last downs2)
+         rights3 (let [f  (if (nil? rights2) from (last rights2))
+                       f2 (+ f  2)
+                       r  (quot f2 9)]
+                   (if (= r row) (range f2 (* (inc r) 9)) nil))
+         lefts3  (let [f  (if (nil? lefts2)  from (last lefts2))
+                       f2 (- f  2)
+                       r  (quot f2 9)]
+                   (if (= r row) (range f2 (dec (* r 9)) -1) nil))
+         ups3    (let [f  (if (nil? ups2) from (last ups2))
+                       f2 (- f  18)]
+                   (if (neg? f2)   nil (range f2 (- col 9) -9)))
+         downs3  (let [f  (if (nil? downs2) from (last downs2))
+                       f2 (+ f  18)]
+                   (if (>= f2 90)  nil (range f2 (+ 90 col) 9)))
 
-         rights3    (if (= (rem right-most 9) 8) nil (map #(+ from 1) (range 1 8)))
-         ups3       (                                 map #(- from 9) (range 1 9))
-         lefts3     (if (= (rem left-most  9) 0) nil (map #(- from 1) (range 1 8)))
-         downs3     (                                 map #(+ from 9) (range 1 9))
+         right4  (first (for [to rights3, :when (enemy? board from to)] to))
+         up4     (first (for [to ups3,    :when (enemy? board from to)] to))
+         left4   (first (for [to lefts3,  :when (enemy? board from to)] to))
+         down4   (first (for [to downs3,  :when (enemy? board from to)] to))
 
-         rights4    (first (for [to rights3, :when (and (<= (rem to 9) 8) (enemy? board from to))] to))
-         ups4       (first (for [to ups3,    :when (and (>= to 0)         (enemy? board from to))] to))
-         lefts4     (first (for [to lefts3,  :when (and (<= (rem to 9) 8) (enemy? board from to))] to))
-         downs4     (first (for [to downs3,  :when (and (>= to 0)         (enemy? board from to))] to))]
-
-     (flatten rights2 ups2 lefts2 downs2 rights4 ups4 lefts4 downs4)))
+         ret1    (concat rights2 ups2 lefts2 downs2)
+         ret2    (if (nil? right4) ret1 (conj ret1 right4))
+         ret3    (if (nil? up4)    ret2 (conj ret2 up4))
+         ret4    (if (nil? left4)  ret3 (conj ret3 left4))
+         ret5    (if (nil? down4)  ret4 (conj ret4 down4))]
+    ret5))
 
 (defn moves-for-horse [board from]
-  (let [row (/ from 9)
-        col  (rem from 9)
+  (let [row  (quot from 9)
+        col  (rem  from 9)
 
         ; Angles in o'clock
         a2   (if (or (< row 1) (> col 6)) nil (if (= (nth board (+ from 1)) \u3000) [(- from 7)]  nil))
@@ -188,21 +229,22 @@
     (filter #(different-side? board from %) tos)))
 
 (defn moves-for-soldier [board from]
-  (let [row      (/ from 9)
-        col      (rem from 9)
-        right    (if (= col 8) nil [(+ from 1)])
-        left     (if (= col 0) nil [(- from 1)])
+  (let [row      (quot from 9)
+        col      (rem  from 9)
+        right    (if (=     col 8) nil [(inc from)])
+        left     (if (zero? col 0) nil [(dec from)])
         piece    (nth board from)
         vertical (if (black? piece)
-                     (if (= row 9) nil [(+ from 9)])
-                     (if (= row 0) nil [(- from 9)]))
+                     (if (=     row 9) nil [(+ from 9)])
+                     (if (zero? row 0) nil [(- from 9)]))
         tos      (concat right left vertical)]
     (filter #(different-side? board from %) tos)))
 
 ;-------------------------------------------------------------------------------
 
-(defn move [board move]
+(defn move
   "Returns a new board. The move should be valid."
+  [board move]
   (let [piece   (nth board (:from move))
         builder (StringBuilder. board)]
     (doto builder
@@ -218,8 +260,8 @@
         red-col     (rem red-index   9)]
     (if-not (= black-col red-col)
             false
-            (let [black-row (/ black-index 9)
-                  red-row   (/ red-index   9)
+            (let [black-row (quot black-index 9)
+                  red-row   (quot red-index   9)
                   rows      (range (+ black-row 1) red-row)
                   blocked   (some #(let [index (+ (* black-row 9) black-col)
                                          piece (nth board index)]
@@ -227,8 +269,9 @@
                                   rows)]
               (not blocked)))))
 
-(defn moves-for-piece [board from]
+(defn moves-for-piece
   "Returns all possible moves for a piece at the index"
+  [board from]
   (let [piece (nth board from)
         fun   (case piece
                     \將 moves-for-black-general
@@ -251,11 +294,33 @@
       #(let [move (Move. from %)] (not (generals-faced? board move)))
       tos)))
 
-(defn moves [board]
+(defn moves
   "Returns all possible moves from board"
+  [board]
   (flatten
     (map
       (fn [from]
         (let [tos (moves-for-piece board from)]
           (map (fn [to] (Move. from to)) tos)))
       (range 90))))
+
+;-------------------------------------------------------------------------------
+
+(defn alpha-beta
+  "black: true to play for BLACK player, false for RED player"
+  [board black max-ply]
+  (if black
+    (alpha-beta-recursive -9999 9999 max-ply)
+    (alpha-beta-recursive -9999 9999 max-ply)))
+
+(defn alpha-beta-recursive [alpha beta depth])
+  (if (zero? depth) )
+var i, best, value: integer; begin
+if depth = 0 then AlphaBeta := Eval else begin
+Gen; best := -INFINITY; i := gen_begin[ply]; { Khởi đầu để lặp tất cả các nước } while (i < gen_end[ply]) and (best < beta) do begin
+if best > alpha then alpha := best;
+if MakeMove(gen_dat[i].m) then value := 1000-ply else value := -AlphaBeta(-beta, -alpha, depth-1); UnMakemove;
+if value > best then begin best := value; if ply = 0 then newmove := gen_dat[i].m;
+end;
+inc (i); end; { while } AlphaBeta := best;
+end; end;
