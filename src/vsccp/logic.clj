@@ -33,10 +33,11 @@
       (print (str "\033[31;1m" piece "\033[0m"))))  ; Red color in *nix console
 
 (defn print-board [board]
+  (print " 0 1 2 3 4 5 6 7 8")
   (dotimes [index 90]
     (let [piece (nth board index)]
-      (print-piece piece)
-      (if (zero? (rem (+ index 1) 9)) (println)))))
+      (if (zero? (rem index 9)) (do (println) (print (/ index 9))))
+      (print-piece piece))))
 
 ;-------------------------------------------------------------------------------
 
@@ -89,25 +90,25 @@
 (defn moves-for-black-general [board from]
   (let [tos [(+ from 1) (- from 9) (- from 1) (+ from 9)]]
     (filter
-      #(and (different-side? board from %) (in-black-palace? %))
+      #(and (in-black-palace? %) (different-side? board from %))
       tos)))
 
 (defn moves-for-red-general [board from]
   (let [tos [(+ from 1) (- from 9) (- from 1) (+ from 9)]]
     (filter
-      #(and (different-side? board from %) (in-red-palace? %))
+      #(and (in-red-palace? %) (different-side? board from %))
       tos)))
 
 (defn moves-for-black-guard [board from]
   (let [tos [(- from 8) (- from 10) (+ from 8) (+ from 10)]]
     (filter
-      #(and (different-side? board from %) (in-black-palace? %))
+      #(and (in-black-palace? %) (different-side? board from %))
       tos)))
 
 (defn moves-for-red-guard [board from]
   (let [tos [(- from 8) (- from 10) (+ from 8) (+ from 10)]]
     (filter
-      #(and (different-side? board from %) (in-red-palace? %))
+      #(and (in-red-palace? %) (different-side? board from %))
       tos)))
 
 (defn moves-for-black-elephant [board from]
@@ -186,7 +187,7 @@
         tos (concat a2 a1 a11 a10 a8 a7 a5 a4)]
     (filter #(different-side? board from %) tos)))
 
-(defn moves-for-black-soldier [board from]
+(defn moves-for-soldier [board from]
   (let [row      (/ from 9)
         col      (rem from 9)
         right    (if (= col 8) nil [(+ from 1)])
@@ -220,7 +221,7 @@
             (let [black-row (/ black-index 9)
                   red-row   (/ red-index   9)
                   rows      (range (+ black-row 1) red-row)
-                  blocked   (any? #(let [index (+ (* black-row 9) black-col)
+                  blocked   (some #(let [index (+ (* black-row 9) black-col)
                                          piece (nth board index)]
                                      (not (= piece \u3000)))
                                   rows)]
@@ -242,8 +243,8 @@
                     \炮 moves-for-cannon
                     \馬 moves-for-horse
                     \傌 moves-for-horse
-                    \兵 moves-for-black-soldier
-                    \卒 moves-for-red-soldier
+                    \兵 moves-for-soldier
+                    \卒 moves-for-soldier
                     \u3000 nil)
         tos   (if (nil? fun) nil (fun board from))]
     (filter
