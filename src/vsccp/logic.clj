@@ -62,7 +62,8 @@
   (dotimes [index 90]
     (let [piece (nth board index)]
       (if (zero? (rem index 9)) (do (println) (print (quot index 9))))
-      (print-piece piece))))
+      (print-piece piece)))
+  (println))
 
 ;-------------------------------------------------------------------------------
 
@@ -191,18 +192,18 @@
          lefts2  (take-while #(= (nth board %) \u3000) lefts)
          downs2  (take-while #(= (nth board %) \u3000) downs)
 
-         rights3 (let [f  (if (nil? rights2) from (last rights2))
+         rights3 (let [f  (if (empty? rights2) from (last rights2))
                        f2 (+ f  2)
                        r  (quot f2 9)]
                    (if (= r row) (range f2 (* (inc r) 9)) nil))
-         lefts3  (let [f  (if (nil? lefts2)  from (last lefts2))
+         lefts3  (let [f  (if (empty? lefts2)  from (last lefts2))
                        f2 (- f  2)
                        r  (quot f2 9)]
                    (if (= r row) (range f2 (dec (* r 9)) -1) nil))
-         ups3    (let [f  (if (nil? ups2) from (last ups2))
+         ups3    (let [f  (if (empty? ups2)   from (last ups2))
                        f2 (- f  18)]
                    (if (neg? f2)   nil (range f2 (- col 9) -9)))
-         downs3  (let [f  (if (nil? downs2) from (last downs2))
+         downs3  (let [f  (if (empty? downs2) from (last downs2))
                        f2 (+ f  18)]
                    (if (>= f2 90)  nil (range f2 (+ 90 col) 9)))
 
@@ -238,13 +239,18 @@
 (defn moves-for-soldier [board from]
   (let [row      (quot from 9)
         col      (rem  from 9)
-        right    (if (=     col 8) nil [(inc from)])
-        left     (if (zero? col 0) nil [(dec from)])
         piece    (nth board from)
+
+        rights   (if (or (and (black? piece) (> row 4)) (and (red? piece) (< row 5)))
+                     (if (= col 8) nil [(inc from)])
+                     nil)
+        lefts    (if (or (and (black? piece) (> row 4)) (and (red? piece) (< row 5)))
+                     (if (zero? col) nil [(dec from)])
+                     nil)
         vertical (if (black? piece)
                      (if (=     row 9) nil [(+ from 9)])
-                     (if (zero? row 0) nil [(- from 9)]))
-        tos      (concat right left vertical)]
+                     (if (zero? row)   nil [(- from 9)]))
+        tos      (concat rights lefts vertical)]
     (filter #(different-side? board from %) tos)))
 
 ;-------------------------------------------------------------------------------
@@ -314,21 +320,31 @@
 
 ;-------------------------------------------------------------------------------
 
+(defn alpha-beta-recursive [board alpha beta depth]
+  (if (zero? depth)
+      [(score board) board]
+      (let [coll (moves board)
+            f    (fn [[best-value best-board improved-alpha] m]
+                   (if (>= best-value beta)
+                       [best-value best-board improved-alpha]
+                       (let [improved-alpha2 (if (> best-value improved-alpha) best-value improved-alpha)
+                             trial-board     (move board m)
+                             [value b]       (alpha-beta-recursive trial-board (- beta) (- improved-alpha2) (dec depth))
+                             value2          (- value)]
+                         (if (> value2 best-value)
+                             [value2     b           improved-alpha2]
+                             [best-value best-board  improved-alpha2]))))
+            [best-value best-board _] (reduce f [-9999 board alpha] coll)]
+        [best-value best-board])))
+
 (defn alpha-beta
   "black: true to play for BLACK player, false for RED player"
   [board black max-ply]
   (if black
-    (alpha-beta-recursive -9999 9999 max-ply)
-    (alpha-beta-recursive -9999 9999 max-ply)))
+    (alpha-beta-recursive board -9999 9999 max-ply)
+    (alpha-beta-recursive board -9999 9999 max-ply)))
 
-(defn alpha-beta-recursive [alpha beta depth])
-  (if (zero? depth) )
-var i, best, value: integer; begin
-if depth = 0 then AlphaBeta := Eval else begin
-Gen; best := -INFINITY; i := gen_begin[ply]; { Khởi đầu để lặp tất cả các nước } while (i < gen_end[ply]) and (best < beta) do begin
-if best > alpha then alpha := best;
-if MakeMove(gen_dat[i].m) then value := 1000-ply else value := -AlphaBeta(-beta, -alpha, depth-1); UnMakemove;
-if value > best then begin best := value; if ply = 0 then newmove := gen_dat[i].m;
-end;
-inc (i); end; { while } AlphaBeta := best;
-end; end;
+(def b (make-board))
+(let [[x y] (alpha-beta-recursive b -9999 9999 4)]
+  (println x)
+  (print-board y))
