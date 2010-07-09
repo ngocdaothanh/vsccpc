@@ -1,5 +1,7 @@
 (ns vsccp.logic)
 
+(set! *warn-on-reflection* true)
+
 ;; '　' = \u3000: zenkaku Japanese space character
 
 (defn make-board []
@@ -18,7 +20,7 @@
 
 ;; Definition for a move
 ;; from, to: int
-(defrecord Move [from to])
+(defrecord Move [^int from ^int to])
 
 (defn black? [piece]
   (or (= piece \將)
@@ -273,8 +275,8 @@
 (defn move
   "Returns a new board. The move should be valid."
   [board move]
-  (let [piece (aget   board (:from move))
-        ret   (aclone board)]
+  (let [piece (aget   ^chars board (:from move))
+        ret   (aclone ^chars board)]
     (aset-char ret (:from move) \u3000)
     (aset-char ret (:to   move) piece)
     ret))
