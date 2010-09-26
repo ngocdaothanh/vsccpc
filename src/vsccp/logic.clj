@@ -401,8 +401,3 @@
   (if black
     (alpha-beta-recursive board -9999 9999 max-ply)
     (alpha-beta-recursive board -9999 9999 max-ply)))
-
-(def b (make-board))
-(let [[x y] (alpha-beta-recursive b -9999 9999 4)]
-  (println x)
-  (print-board y))

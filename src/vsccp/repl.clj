@@ -1,7 +1,8 @@
 ;; Utility function for human to easily play in REPL.
 
 (ns vsccp.repl
- (:use [vsccp.logic]))
+ (:use [vsccp.logic])
+ (:import vsccp.logic.Move))
 
 (def *max-ply* 4)
 
@@ -18,7 +19,7 @@
     (swap! b move m)
     (print-board @b)))
 
-(def cm []
+(defn cm []
   (let [m (alpha-beta @b true *max-ply*)]
     (swap! b move m)
-    (print-board @b))
+    (print-board @b)))
